@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Транспортная задача — MODI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px 14px 60px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#f1f5f9;color:#0f172a;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:#64748b;margin:0 0 18px;font-size:13px}
+h2{font-size:17px;margin:24px 0 10px}
+.panel{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fff;padding:12px 14px;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.08);margin-bottom:14px}
+.panel label{font-size:13px;color:#334155;display:inline-flex;align-items:center;gap:6px}
+.panel input[type=number]{width:60px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:13px;text-align:center}
+button{border:none;border-radius:8px;padding:8px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#e2e8f0;color:#0f172a}
+button:hover{background:#cbd5e1}
+button.primary{background:#2563eb;color:#fff}
+button.primary:hover{background:#1d4ed8}
+.card{background:#fff;padding:14px;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.08);margin-bottom:14px;overflow-x:auto}
+.card-title{font-weight:700;font-size:13px;margin-bottom:8px;color:#334155}
+.actions{margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hint{font-size:12px;color:#94a3b8}
+table.tp{border-collapse:collapse;font-size:13px;background:#fff}
+table.tp th,table.tp td{border:1px solid #cbd5e1;padding:5px 8px;text-align:center}
+table.tp thead th{background:#e2e8f0;font-weight:700}
+table.tp tfoot th,table.tp tfoot td{background:#f1f5f9;font-weight:700}
+table.tp th.sup,table.tp td.sup{background:#fef3c7;font-weight:700}
+table.tp td.cell{padding:3px 6px;min-width:52px}
+.tar{display:block;font-size:11px;color:#94a3b8;line-height:1.2}
+.amt{display:block;font-size:15px;font-weight:700;color:#1d4ed8;line-height:1.2}
+td.hl{background:#fde68a;box-shadow:inset 0 0 0 2px #f59e0b}
+table.tp.input th{background:#f8fafc;font-weight:600;font-size:13px}
+table.tp.input td{padding:3px}
+table.tp.input input{width:60px;padding:6px 4px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;font-size:13px;text-align:center;background:#fff}
+table.tp.input input:focus{outline:2px solid #93c5fd;border-color:#60a5fa}
+table.tp.input td.sup input{background:#fffbeb}
+.notice{background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;color:#1e3a8a}
+.notice.warn{background:#fffbeb;border-color:#f59e0b;color:#92400e}
+.notice.ok{background:#ecfdf5;border-color:#10b981;color:#065f46}
+.error{background:#fef2f2;border-left:4px solid #ef4444;padding:10px 12px;border-radius:8px;font-size:13px;color:#991b1b}
+.steps{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+.step{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,23,42,.08);overflow-x:auto}
+.step-title{font-weight:700;font-size:11px;color:#2563eb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.step-desc{font-size:13px;color:#334155;margin-bottom:8px}
+details summary{cursor:pointer;font-size:13px;color:#475569;user-select:none;padding:4px 0}
+.total{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:12px 16px;border-radius:12px;font-size:15px;margin-bottom:14px}
+.total b{font-size:19px}
+.total.dim{background:#f8fafc;border-color:#e2e8f0;color:#475569}
+ul.ship{margin:0;padding-left:20px;font-size:13px;color:#334155}
+ul.ship li{margin-bottom:3px}
+.pot-table{font-size:12px;border-collapse:collapse}
+.pot-table th,.pot-table td{border:1px solid #cbd5e1;padding:3px 8px;text-align:center}
+.pot-table th{background:#f1f5f9}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Транспортная задача</h1>
+<p class="sub">Опорный план методом наименьшей стоимости + проверка методом потенциалов (MODI)</p>
+<div class="panel">
+<label>Поставщиков: <input type="number" id="rows" value="3" min="1" max="10"></label>
+<label>Потребителей: <input type="number" id="cols" value="4" min="1" max="10"></label>
+<button id="build">Построить таблицу</button>
+<button id="example">Загрузить пример</button>
+</div>
+<div class="card">
+<div id="input-area"></div>
+<div class="actions">
+<button class="primary" id="solve">Решить</button>
+<span class="hint">В клетках — тарифы, справа — запасы, снизу — потребности</span>
+</div>
+</div>
+<div id="result"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let R=3,C=4;
+const num=v=>{const x=parseFloat(String(v).replace(',','.'));return isNaN(x)?0:x};
+const fmt=v=>{const r=Math.round(v*1e6)/1e6;return Object.is(r,-0)?'0':String(r)};
+const EXAMPLE={costs:[[2,7,1,2],[18,8,2,9],[9,18,1,17]],a:[5,5,4],b:[6,3,18,7]};
+
+function buildInputs(data){
+R=Math.min(10,Math.max(1,parseInt($('rows').value)||1));
+C=Math.min(10,Math.max(1,parseInt($('cols').value)||1));
+$('rows').value=R;$('cols').value=C;
+let h='<table class="tp input"><thead><tr><th>A \\ B</th>';
+for(let j=0;j<C;j++)h+=`<th>B${j+1}</th>`;
+h+='<th class="sup">Запасы</th></tr></thead><tbody>';
+for(let i=0;i<R;i++){
+h+=`<tr><th>A${i+1}</th>`;
+for(let j=0;j<C;j++){const v=data?data.costs[i][j]:'';h+=`<td><input id="c-${i}-${j}" type="text" inputmode="decimal" value="${v}"></td>`}
+h+=`<td class="sup"><input id="a-${i}" type="text" inputmode="decimal" value="${data?data.a[i]:''}"></td></tr>`;
+}
+h+='</tbody><tfoot><tr><th>Потребности</th>';
+for(let j=0;j<C;j++)h+=`<td><input id="b-${j}" type="text" inputmode="decimal" value="${data?data.b[j]:''}"></td>`;
+h+='<td class="sup"></td></tr></tfoot></table>';
+$('input-area').innerHTML=h;$('result').innerHTML='';
+}
+
+function leastCost(costs,a,b,rowNames,colNames){
+const n=a.length,m=b.length,supp=a.slice(),dem=b.slice();
+const alloc=Array.from({length:n},()=>Array(m).fill(0));
+const actR=Array(n).fill(true),actC=Array(m).fill(true),EPS=1e-9;
+for(let it=0;it<n*m+10;it++){
+let bi=-1,bj=-1,bc=Infinity;
+for(let i=0;i<n;i++){if(!actR[i]||supp[i]<=EPS)continue;
+for(let j=0;j<m;j++){if(!actC[j]||dem[j]<=EPS)continue;
+if(costs[i][j]<bc-EPS){bc=costs[i][j];bi=i;bj=j}}}
+if(bi<0)break;
+const amt=Math.min(supp[bi],dem[bj]);
+alloc[bi][bj]+=amt;supp[bi]-=amt;dem[bj]-=amt;
+if(Math.abs(supp[bi])<1e-9)supp[bi]=0;
+if(Math.abs(dem[bj])<1e-9)dem[bj]=0;
+if(supp[bi]===0)actR[bi]=false;
+if(dem[bj]===0)actC[bj]=false;
+}
+return alloc;
+}
+
+function createsCycle(basis,cell,n,m){
+const p=Array.from({length:n+m},(_,i)=>i);
+const find=x=>{while(p[x]!==x){p[x]=p[p[x]];x=p[x]}return x};
+for(const[i,j]of basis){const a=find(i),b=find(n+j);if(a!==b)p[a]=b}
+return find(cell[0])===find(n+cell[1]);
+}
+
+function completeBasis(basis,n,m){
+const set=new Set(basis.map(([i,j])=>i*m+j));
+for(let i=0;i<n&&basis.length<n+m-1;i++)
+for(let j=0;j<m;j++){
+if(basis.length>=n+m-1)return;
+if(set.has(i*m+j))continue;
+if(!createsCycle(basis,[i,j],n,m)){basis.push([i,j]);set.add(i*m+j)}
+}
+}
+
+function computePotentials(basis,costs,n,m){
+const u=Array(n).fill(0),v=Array(m).fill(0);
+const adj=Array.from({length:n+m},()=>[]);
+for(const[i,j]of basis){adj[i].push(n+j);adj[n+j].push(i)}
+const vis=Array(n+m).fill(false);
+for(let s=0;s<n+m;s++){
+if(vis[s]||!adj[s].length)continue;
+vis[s]=true;
+const q=[s];
+while(q.length){
+const cur=q.shift();
+for(const nx of adj[cur]){
+if(vis[nx])continue;
+vis[nx]=true;
+if(cur<n)v[nx-n]=costs[cur][nx-n]-u[cur];
+else u[nx]=costs[nx][cur-n]-v[cur-n];
+q.push(nx);
+}}}
+return{u,v};
+}
+
+function findCycle(basis,n,m,ei,ej){
+const adj=Array.from({length:n+m},()=>[]);
+for(const[i,j]of basis){adj[i].push(n+j);adj[n+j].push(i)}
+const start=n+ej,target=ei,prev=Array(n+m).fill(-1),vis=Array(n+m).fill(false),q=[start];
+vis[start]=true;
+while(q.length){const cur=q.shift();if(cur===target)break;
+for(const nx of adj[cur])if(!vis[nx]){vis[nx]=true;prev[nx]=cur;q.push(nx)}}
+if(!vis[target])return null;
+const path=[];let cur=target;
+while(cur!==-1){path.unshift(cur);if(cur===start)break;cur=prev[cur]}
+const cyc=[[ei,ej]];
+for(let k=0;k<path.length-1;k++){
+const a=path[k],b=path[k+1];
+let i,j;
+if(a<n){i=a;j=b-n}else{i=b;j=a-n}
+cyc.push([i,j]);
+}
+return cyc;
+}
+
+function modiMethod(costs,init,n,m){
+let alloc=init.map(r=>r.slice());
+let basis=[];
+for(let i=0;i<n;i++)for(let j=0;j<m;j++)if(alloc[i][j]>1e-9)basis.push([i,j]);
+completeBasis(basis,n,m);
+const hist=[];let u=Array(n).fill(0),v=Array(m).fill(0),opt=false;
+const deg=basis.length<n+m-1;
+for(let it=0;it<500;it++){
+const p=computePotentials(basis,costs,n,m);u=p.u;v=p.v;
+const set=new Set(basis.map(([i,j])=>i*m+j));
+let md=-Infinity,mi=-1,mj=-1;
+for(let i=0;i<n;i++)for(let j=0;j<m;j++){
+if(set.has(i*m+j))continue;
+const d=u[i]+v[j]-costs[i][j];
+if(d>md+1e-9){md=d;mi=i;mj=j}
+}
+if(md<=1e-9){opt=true;break}
+const cyc=findCycle(basis,n,m,mi,mj);
+if(!cyc)break;
+let mv=Infinity,mIdx=1;
+for(let k=1;k<cyc.length;k+=2){
+const[ci,cj]=cyc[k];
+if(alloc[ci][cj]<mv){mv=alloc[ci][cj];mIdx=k}
+}
+if(mv<0)mv=0;
+const before=alloc.map(r=>r.slice());
+for(let k=0;k<cyc.length;k++){
+const[ci,cj]=cyc[k];
+if(k%2===0)alloc[ci][cj]+=mv;else alloc[ci][cj]-=mv;
+if(Math.abs(alloc[ci][cj])<1e-9)alloc[ci][cj]=0;
+}
+const rm=cyc[mIdx];
+basis=basis.filter(([i,j])=>!(i===rm[0]&&j===rm[1]));
+basis.push([mi,mj]);
+hist.push({iter:it+1,ei:mi,ej:mj,delta:md,amt:mv,before,alloc:alloc.map(r=>r.slice()),u:u.slice(),v:v.slice()});
+}
+return{alloc,hist,opt,u,v,deg};
+}
+
+function tableHTML(costs,a,b,alloc,rn,cn,hl){
+const n=costs.length,m=costs[0].length;
+let h='<table class="tp"><thead><tr><th></th>';
+for(let j=0;j<m;j++)h+=`<th>${cn[j]}</th>`;
+h+='<th class="sup">Запасы</th></tr></thead><tbody>';
+for(let i=0;i<n;i++){
+h+=`<tr><th>${rn[i]}</th>`;
+for(let j=0;j<m;j++){
+let cls='cell';
+if(hl&&hl.i===i&&hl.j===j)cls+=' hl';
+h+=`<td class="${cls}"><span class="tar">${fmt(costs[i][j])}</span>`;
+if(alloc[i][j]>0)h+=`<span class="amt">${fmt(alloc[i][j])}</span>`;
+h+='</td>';
+}
+h+=`<td class="sup">${fmt(a[i])}</td></tr>`;
+}
+h+='</tbody><tfoot><tr><th>Потребности</th>';
+for(let j=0;j<m;j++)h+=`<td>${fmt(b[j])}</td>`;
+h+='<td class="sup"></td></tr></tfoot></table>';
+return h;
+}
+
+function inputTable(costs,a,b,rn,cn){
+const n=costs.length,m=costs[0].length;
+let h='<table class="tp"><thead><tr><th>A \\ B</th>';
+for(let j=0;j<m;j++)h+=`<th>${cn[j]}</th>`;
+h+='<th class="sup">Запасы</th></tr></thead><tbody>';
+for(let i=0;i<n;i++){
+h+=`<tr><th>${rn[i]}</th>`;
+for(let j=0;j<m;j++)h+=`<td>${fmt(costs[i][j])}</td>`;
+h+=`<td class="sup">${fmt(a[i])}</td></tr>`;
+}
+h+='</tbody><tfoot><tr><th>Потребности</th>';
+for(let j=0;j<m;j++)h+=`<td>${fmt(b[j])}</td>`;
+h+='<td class="sup"></td></tr></tfoot></table>';
+return h;
+}
+
+function totalCost(costs,alloc){
+let t=0;
+for(let i=0;i<costs.length;i++)for(let j=0;j<costs[0].length;j++)t+=alloc[i][j]*costs[i][j];
+return t;
+}
+
+function shipsHTML(costs,alloc,rn,cn){
+let l='<ul class="ship">';
+for(let i=0;i<costs.length;i++)for(let j=0;j<costs[0].length;j++)
+if(alloc[i][j]>1e-9)l+=`<li>${rn[i]} → ${cn[j]}: <b>${fmt(alloc[i][j])}</b> ед. × ${fmt(costs[i][j])} = ${fmt(alloc[i][j]*costs[i][j])}</li>`;
+return l+'</ul>';
+}
+
+function solve(){
+const oc=[],oa=[],ob=[];
+for(let i=0;i<R;i++){const r=[];for(let j=0;j<C;j++)r.push(num($(`c-${i}-${j}`).value));oc.push(r)}
+for(let i=0;i<R;i++)oa.push(num($(`a-${i}`).value));
+for(let j=0;j<C;j++)ob.push(num($(`b-${j}`).value));
+const errs=[];
+if(oa.some(v=>v<0)||ob.some(v=>v<0))errs.push('Запасы и потребности должны быть неотрицательными.');
+if(oa.every(v=>v===0))errs.push('Суммарный запас равен нулю.');
+if(ob.every(v=>v===0))errs.push('Суммарная потребность равна нулю.');
+if(errs.length){$('result').innerHTML=`<div class="error">${errs.join('<br>')}</div>`;return}
+
+const costs=oc.map(r=>r.slice()),a=oa.slice(),b=ob.slice(),rn=[],cn=[];
+for(let i=0;i<R;i++)rn.push('A'+(i+1));
+for(let j=0;j<C;j++)cn.push('B'+(j+1));
+const notes=[],sA=a.reduce((s,v)=>s+v,0),sB=b.reduce((s,v)=>s+v,0);
+if(Math.abs(sA-sB)>1e-9){
+if(sA>sB){const d=sA-sB;cn.push('Bф');b.push(d);costs.forEach(r=>r.push(0));
+notes.push(`Задача не сбалансирована: Σa = ${fmt(sA)}, Σb = ${fmt(sB)}. Добавлен фиктивный потребитель Bф с потребностью ${fmt(d)} и нулевыми тарифами.`)}
+else{const d=sB-sA;rn.push('Aф');a.push(d);costs.push(new Array(C).fill(0));
+notes.push(`Задача не сбалансирована: Σa = ${fmt(sA)}, Σb = ${fmt(sB)}. Добавлен фиктивный поставщик Aф с запасом ${fmt(d)} и нулевыми тарифами.`)}
+}
+
+const n=costs.length,m=costs[0].length;
+const supAlloc=leastCost(costs,a,b,rn,cn);
+const supCost=totalCost(costs,supAlloc);
+const modi=modiMethod(costs,supAlloc,n,m);
+const optAlloc=modi.alloc,optCost=totalCost(costs,optAlloc);
+
+let html='';
+html+='<h2>Исходная таблица</h2>';
+html+=`<div class="card">${inputTable(oc,oa,ob,Array.from({length:R},(_,i)=>'A'+(i+1)),Array.from({length:C},(_,j)=>'B'+(j+1)))}</div>`;
+if(notes.length)html+=`<div class="notice">${notes.join('<br>')}</div>`;
+
+html+='<h2>Опорный план (метод наименьшей стоимости)</h2>';
+html+=`<div class="card">${tableHTML(costs,a,b,supAlloc,rn,cn,null)}</div>`;
+html+=`<div class="total dim">Стоимость опорного плана: <b>${fmt(supCost)}</b> ден. ед.</div>`;
+
+if(modi.opt){
+html+=`<div class="notice ok"><b>Проверка оптимальности (MODI):</b> все оценки Δ<sub>ij</sub> ≤ 0 — опорный план уже <b>оптимален</b>.</div>`;
+html+='<details><summary>Показать потенциалы</summary><div class="card" style="margin-top:8px"><table class="pot-table"><tr><th>u<sub>i</sub></th>';
+for(let i=0;i<n;i++)html+=`<th>${rn[i]}</th>`;
+html+='</tr><tr><td></td>';
+for(let i=0;i<n;i++)html+=`<td>${fmt(modi.u[i])}</td>`;
+html+='</tr></table><table class="pot-table" style="margin-top:8px"><tr><th>v<sub>j</sub></th>';
+for(let j=0;j<m;j++)html+=`<th>${cn[j]}</th>`;
+html+='</tr><tr><td></td>';
+for(let j=0;j<m;j++)html+=`<td>${fmt(modi.v[j])}</td>`;
+html+='</tr></table></div></details>';
+}else{
+html+=`<div class="notice warn"><b>Проверка оптимальности (MODI):</b> обнаружены оценки Δ<sub>ij</sub> > 0 — план не оптимален. Выполнено <b>${modi.hist.length}</b> ${modi.hist.length===1?'итерация':modi.hist.length<5?'итерации':'итераций'} улучшения.</div>`;
+html+=`<details><summary>Показать итерации улучшения (${modi.hist.length})</summary><div class="steps">`;
+modi.hist.forEach(h=>{
+html+=`<div class="step"><div class="step-title">Итерация ${h.iter}</div><div class="step-desc">Вводим в базис клетку <b>(${rn[h.ei]}; ${cn[h.ej]})</b> с оценкой Δ = <b>${fmt(h.delta)}</b> &gt; 0. По циклу пересчёта переносим <b>${fmt(h.amt)}</b> ед.</div><div style="display:flex;gap:14px;flex-wrap:wrap;"><div><div class="step-title" style="color:#94a3b8">До</div>${tableHTML(costs,a,b,h.before,rn,cn,{i:h.ei,j:h.ej})}</div><div><div class="step-title" style="color:#10b981">После</div>${tableHTML(costs,a,b,h.alloc,rn,cn,null)}</div></div></div>`;
+});
+html+='</div></details>';
+html+='<h2>Оптимальный план</h2>';
+html+=`<div class="card">${tableHTML(costs,a,b,optAlloc,rn,cn,null)}</div>`;
+html+='<details><summary>Показать потенциалы (последняя итерация)</summary><div class="card" style="margin-top:8px"><table class="pot-table"><tr><th>u<sub>i</sub></th>';
+for(let i=0;i<n;i++)html+=`<th>${rn[i]}</th>`;
+html+='</tr><tr><td></td>';
+for(let i=0;i<n;i++)html+=`<td>${fmt(modi.u[i])}</td>`;
+html+='</tr><tr><th>v<sub>j</sub></th>';
+for(let j=0;j<m;j++)html+=`<td>${fmt(modi.v[j])}</td>`;
+html+='</tr></table></div></details>';
+}
+
+const fAlloc=modi.opt?supAlloc:optAlloc,fCost=modi.opt?supCost:optCost;
+html+=`<div class="total">Оптимальная стоимость перевозок: <b>${fmt(fCost)}</b> ден. ед.</div>`;
+html+=`<div class="card"><div class="card-title">Оптимальные перевозки</div>${shipsHTML(costs,fAlloc,rn,cn)}</div>`;
+if(modi.deg)html+=`<div class="notice warn">План вырожденный (занятых клеток меньше ${n+m-1}); для расчёта потенциалов добавлены нулевые базисные перевозки.</div>`;
+
+$('result').innerHTML=html;
+}
+
+$('build').addEventListener('click',()=>buildInputs(null));
+$('example').addEventListener('click',()=>{
+$('rows').value=EXAMPLE.costs.length;
+$('cols').value=EXAMPLE.costs[0].length;
+buildInputs(EXAMPLE);
+});
+$('solve').addEventListener('click',solve);
+$('input-area').addEventListener('keydown',e=>{if(e.key==='Enter')solve()});
+buildInputs(null);
+</script>
+</body>
+</html>
